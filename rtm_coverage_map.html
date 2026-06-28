@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Red Tail Multiservice — 25-Mile Coverage Area</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; }
+
+    #header {
+      background: #0d0d1a;
+      border-bottom: 3px solid #8B0000;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 1000;
+    }
+    #header h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+    #header h1 span { color: #cc2200; }
+    #header .subtitle { font-size: 12px; color: #aaa; margin-top: 2px; }
+    #header .badge {
+      background: #8B0000;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 14px;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    #map { flex: 1; width: 100%; }
+
+    .info-panel {
+      position: absolute;
+      z-index: 1000;
+      background: rgba(13,13,26,0.93);
+      border: 1px solid #8B0000;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .info-panel h3 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+
+    #legend {
+      bottom: 30px;
+      left: 15px;
+      min-width: 220px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12px; color: #ccc; }
+    .legend-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .legend-area { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+
+    #stats {
+      top: 80px;
+      right: 15px;
+      min-width: 200px;
+    }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; gap: 12px; }
+    .stat-label { color: #aaa; }
+    .stat-value { color: #fff; font-weight: 600; text-align: right; }
+
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper { border-radius: 6px; font-family: 'Segoe UI', Arial, sans-serif; }
+    .leaflet-popup-content { margin: 10px 14px; font-size: 13px; line-height: 1.5; }
+    .popup-title { font-weight: 700; color: #cc2200; font-size: 14px; margin-bottom: 4px; }
+    .popup-sub { color: #555; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1><span>Red Tail</span> Multiservice, LLC</h1>
+    <div class="subtitle">Medical Courier &amp; Senior Errand Services — Palm Beach &amp; Broward Counties</div>
+  </div>
+  <div class="badge">25-Mile Service Radius</div>
+</div>
+
+<div id="map"></div>
+
+<div class="info-panel" id="legend">
+  <h3>Map Legend</h3>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#cc2200; border: 2px solid #fff; box-shadow: 0 0 6px rgba(204,34,0,0.7);"></div>
+    RTM Base — Delray Beach
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#2196F3; border: 2px solid #fff;"></div>
+    Cities Within Coverage Area
+  </div>
+  <div class="legend-item">
+    <div class="legend-area" style="background:rgba(204,34,0,0.18); border: 2px dashed #cc2200;"></div>
+    25-Mile Service Boundary
+  </div>
+</div>
+
+<div class="info-panel" id="stats">
+  <h3>Coverage Stats</h3>
+  <div class="stat-row"><span class="stat-label">Service Radius</span><span class="stat-value">25 miles</span></div>
+  <div class="stat-row"><span class="stat-label">Base Location</span><span class="stat-value">Delray Beach, FL</span></div>
+  <div class="stat-row"><span class="stat-label">Counties</span><span class="stat-value">Palm Beach, Broward</span></div>
+  <div class="stat-row"><span class="stat-label">Divisions</span><span class="stat-value">Medical Courier &amp; Senior Errands</span></div>
+  <div class="stat-row"><span class="stat-label">Major Cities</span><span class="stat-value">13+</span></div>
+  <div class="stat-row"><span class="stat-label">Approx. Area</span><span class="stat-value">~1,963 sq mi</span></div>
+</div>
+
+<script>
+  // RTM Base coordinates
+  const BASE_LAT = 26.4649047;
+  const BASE_LON = -80.0780029;
+  const RADIUS_MILES = 25;
+  const RADIUS_METERS = RADIUS_MILES * 1609.344;
+
+  // Initialize map
+  const map = L.map('map', {
+    center: [BASE_LAT, BASE_LON],
+    zoom: 9,
+    zoomControl: true
+  });
+
+  // OpenStreetMap tiles (dark-ish Carto)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Generate circle polygon
+  function generateCircle(lat, lon, radiusM, numPoints) {
+    const coords = [];
+    const earthRadius = 6378137;
+    for (let i = 0; i <= numPoints; i++) {
+      const angle = (i / numPoints) * 2 * Math.PI;
+      const dx = radiusM * Math.cos(angle);
+      const dy = radiusM * Math.sin(angle);
+      const deltaLat = (dy / earthRadius) * (180 / Math.PI);
+      const deltaLon = (dx / (earthRadius * Math.cos(lat * Math.PI / 180))) * (180 / Math.PI);
+      coords.push([lat + deltaLat, lon + deltaLon]);
+    }
+    return coords;
+  }
+
+  // Draw coverage area
+  const circleCoords = generateCircle(BASE_LAT, BASE_LON, RADIUS_METERS, 360);
+  L.polygon(circleCoords, {
+    color: '#cc2200',
+    weight: 2,
+    dashArray: '8, 5',
+    fillColor: '#cc2200',
+    fillOpacity: 0.12
+  }).addTo(map).bindPopup('<div class="popup-title">RTM Service Area</div><div>25-mile radius from Delray Beach base</div>');
+
+  // RTM Base marker
+  const baseIcon = L.divIcon({
+    html: `<div style="
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #cc2200; border: 3px solid #fff;
+      box-shadow: 0 0 12px rgba(204,34,0,0.9), 0 0 4px rgba(0,0,0,0.5);
+    "></div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    className: ''
+  });
+
+  L.marker([BASE_LAT, BASE_LON], { icon: baseIcon })
+    .addTo(map)
+    .bindPopup(`
+      <div class="popup-title">Red Tail Multiservice, LLC</div>
+      135 NW 5th Ave, Apt 4<br/>
+      Delray Beach, FL 33444<br/>
+      <span class="popup-sub">Medical Courier &amp; Senior Errand Services</span><br/>
+      <span class="popup-sub">📞 561.571.1655</span>
+    `)
+    .openPopup();
+
+  // Cities within coverage
+  const cities = [
+    { name: "Boca Raton", lat: 26.3505, lon: -80.0898, note: "Palm Beach County" },
+    { name: "Boynton Beach", lat: 26.5317, lon: -80.0905, note: "Palm Beach County" },
+    { name: "Lake Worth Beach", lat: 26.6151, lon: -80.0589, note: "Palm Beach County" },
+    { name: "West Palm Beach", lat: 26.7153, lon: -80.0534, note: "Palm Beach County — County Seat" },
+    { name: "Wellington", lat: 26.6589, lon: -80.2686, note: "Palm Beach County" },
+    { name: "Greenacres", lat: 26.6273, lon: -80.1317, note: "Palm Beach County" },
+    { name: "Palm Springs", lat: 26.6373, lon: -80.0978, note: "Palm Beach County" },
+    { name: "Deerfield Beach", lat: 26.3184, lon: -80.0998, note: "Broward County" },
+    { name: "Pompano Beach", lat: 26.2379, lon: -80.1248, note: "Broward County" },
+    { name: "Fort Lauderdale", lat: 26.1224, lon: -80.1373, note: "Broward County — County Seat" },
+    { name: "Coral Springs", lat: 26.2707, lon: -80.2706, note: "Broward County" },
+    { name: "Coconut Creek", lat: 26.2517, lon: -80.1789, note: "Broward County" },
+    { name: "Margate", lat: 26.2445, lon: -80.2062, note: "Broward County" },
+  ];
+
+  const cityIcon = L.divIcon({
+    html: `<div style="
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #2196F3; border: 2px solid #fff;
+      box-shadow: 0 0 6px rgba(33,150,243,0.7);
+    "></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+    className: ''
+  });
+
+  cities.forEach(city => {
+    L.marker([city.lat, city.lon], { icon: cityIcon })
+      .addTo(map)
+      .bindPopup(`
+        <div class="popup-title">${city.name}</div>
+        <div>${city.note}</div>
+        <div class="popup-sub">Within RTM 25-Mile Service Area</div>
+      `);
+  });
+
+  // Position legend and stats panels over the map
+  const legendEl = document.getElementById('legend');
+  const statsEl = document.getElementById('stats');
+  legendEl.style.position = 'absolute';
+  statsEl.style.position = 'absolute';
+</script>
+</body>
+</html>
